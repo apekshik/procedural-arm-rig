@@ -5,28 +5,49 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rigged Arm · three.js</title>
 <style>
-  :root { --ink:#e9edf5; --dim:#8a92a6; --line:rgba(255,255,255,.10); --panel:rgba(18,21,28,.72); --accent:#7fd4ff; }
+  :root { --ink:#f2f4f9; --dim:#aeb5c6; --glass:rgba(13,15,21,.56); --line:rgba(255,255,255,.13); }
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; overflow:hidden; color:var(--ink);
     background:radial-gradient(120% 95% at 62% 32%, #1b1f28 0%, #0a0b0f 100%);
-    font:13px/1.45 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif; }
+    font:13px/1.45 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
   canvas { position:fixed; inset:0; display:block; touch-action:none; }
-  .panel { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:12px;
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
-  #title { top:16px; left:16px; padding:12px 14px; max-width:300px; }
-  #title h1 { margin:0 0 2px; font-size:14px; font-weight:650; letter-spacing:.02em; }
-  #title p { margin:0; color:var(--dim); font-size:12px; }
-  #views { top:16px; right:16px; padding:5px; display:flex; gap:4px; }
-  #modes { bottom:16px; left:50%; transform:translateX(-50%); padding:5px; display:flex; gap:4px; flex-wrap:wrap; justify-content:center; max-width:calc(100vw - 32px); }
-  button { all:unset; cursor:pointer; padding:7px 12px; border-radius:8px; color:var(--dim); font-size:12.5px; white-space:nowrap; transition:background .15s,color .15s; }
-  button:hover { color:var(--ink); background:rgba(255,255,255,.06); }
-  button.on { color:#0b0d12; background:var(--accent); font-weight:600; }
-  button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  #hud { left:16px; bottom:16px; padding:10px 14px; display:grid; grid-template-columns:auto auto; gap:2px 14px;
+  .glass { background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(18px) saturate(1.3); -webkit-backdrop-filter:blur(18px) saturate(1.3);
+    box-shadow:0 8px 30px rgba(0,0,0,.28); }
+
+  /* segmented controls */
+  .seg { display:flex; gap:2px; padding:4px; border-radius:999px; }
+  .seg button { all:unset; cursor:pointer; padding:8px 15px; border-radius:999px; color:var(--dim); font-size:13px; font-weight:500;
+    white-space:nowrap; transition:background .18s, color .18s; -webkit-tap-highlight-color:transparent; }
+  .seg button:hover { color:var(--ink); }
+  .seg button.on { background:rgba(255,255,255,.95); color:#0d0f14; font-weight:600; }
+  .seg button:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+
+  #top { position:fixed; top:16px; left:18px; right:18px; display:flex; justify-content:space-between; align-items:center; gap:12px; pointer-events:none; }
+  #top > * { pointer-events:auto; }
+  #brand { font-size:15px; font-weight:650; letter-spacing:.01em; text-shadow:0 1px 10px rgba(0,0,0,.55); }
+  #brand span { display:block; font-size:12px; font-weight:400; color:rgba(255,255,255,.72); }
+
+  #dock { position:fixed; left:0; right:0; bottom:20px; padding:0 12px; display:flex; flex-direction:column; align-items:center; gap:10px; pointer-events:none; }
+  #hint { margin:0; max-width:540px; text-align:center; font-size:12.5px; color:rgba(255,255,255,.86); text-shadow:0 1px 8px rgba(0,0,0,.7); min-height:2.9em;
+    display:flex; align-items:flex-end; justify-content:center; }
+  #modes { pointer-events:auto; max-width:100%; overflow-x:auto; scrollbar-width:none; }
+  #modes::-webkit-scrollbar { display:none; }
+
+  #hud { position:fixed; left:18px; bottom:20px; padding:10px 14px; border-radius:14px; display:grid; grid-template-columns:auto auto; gap:2px 16px;
     font-variant-numeric:tabular-nums; font-size:12px; }
   #hud span:nth-child(odd) { color:var(--dim); }
-  #hud span:nth-child(even) { text-align:right; min-width:44px; }
-  @media (max-width:760px) { #hud { bottom:70px; } #title p { display:none; } }
+  #hud span:nth-child(even) { text-align:right; min-width:38px; }
+  #loading { position:fixed; inset:0; display:grid; place-items:center; color:var(--dim); font-size:14px; letter-spacing:.02em; }
+
+  @media (max-width:1180px) { #hud { display:none; } }
+  @media (max-width:600px) {
+    #top { top:max(12px, env(safe-area-inset-top)); left:14px; right:10px; }
+    #brand span { display:none; }
+    #views button { padding:8px 12px; }
+    #dock { bottom:max(14px, env(safe-area-inset-bottom)); padding:0 8px; }
+    #hint { font-size:12px; padding:0 10px; }
+    #modes button { padding:10px 15px; }
+  }
 </style>
 <script type="importmap">
 { "imports": {
@@ -36,15 +57,20 @@
 </script>
 </head>
 <body>
-<div id="title" class="panel"><h1>Procedural rigged arm</h1><p id="hint"></p></div>
-<div id="views" class="panel"></div>
-<div id="modes" class="panel"></div>
-<div id="hud" class="panel">
+<div id="loading">Building the hand…</div>
+<div id="top" class="ui">
+  <div id="brand">Procedural arm<span>rigged, skinned and animated in code</span></div>
+  <div id="views" class="seg glass"></div>
+</div>
+<div id="dock" class="ui">
+  <p id="hint"></p>
+  <div id="modes" class="seg glass"></div>
+</div>
+<div id="hud" class="ui glass">
   <span>Elbow flex</span><span id="h-elbow"></span>
   <span>Forearm twist</span><span id="h-twist"></span>
   <span>Wrist flex</span><span id="h-wflex"></span>
   <span>Wrist deviation</span><span id="h-wdev"></span>
-  <span>Bones</span><span id="h-bones"></span>
 </div>
 
 <script type="module">
@@ -504,7 +530,7 @@ const gripPose = g => {
   setThumb(THUMB.open, THUMB.grab, g);
 };
 const MODES = {
-  reach: { label:'Reach & grab', hint:'Two-bone IK chases the orb; fingers pre-shape, then close. Drag the orb yourself.',
+  reach: { label:'Reach & grab', hint:'The hand chases the ball and closes around it. Drag the ball yourself.',
     fn(t, dt) {
       if (!dragging) { hold -= dt; if (hold <= 0) { pickOrbGoal(); hold = 3.3+Math.random()*1.3; } }
       orbS.to(tv.copy(orbGoal).add(tv2.set(0, Math.sin(t*1.7)*0.008, 0)));
@@ -521,7 +547,7 @@ const MODES = {
       gripPose(grip);
       P.wflex = lerp(0.28, 0.05, grip); P.wdev = 0; P.tense = grip*0.6;
     } },
-  pick: { label:'Pick & place', hint:'Lifts the ball off the table and sets it down somewhere else; fingertips stop at the table surface.',
+  pick: { label:'Pick & place', hint:'Picks the ball up and sets it down; fingers wrap it joint by joint.',
     a:new V3(0.03, TY+0.033, 0.43), b:new V3(0.31, TY+0.033, 0.47), tp:0, off:new V3(), held:false,
     fn(t, dt) {
       const m = this; m.tp += dt;
@@ -548,7 +574,7 @@ const MODES = {
       grip = g; gripPose(g);
       P.wflex = lerp(0.25, 0.08, g); P.wdev = 0; P.tense = g*0.6;
     } },
-  flow: { label:'Finger wave', hint:'Loose hand from the reference footage: the wrist droops and turns slowly while a curl ripples through the fingers.',
+  flow: { label:'Finger wave', hint:'A loose hand: a curl ripples through the fingers, knuckle first.',
     fn(t) {
       P.tgt.set(0.19+0.015*noise(t*0.4,7), -0.04+0.012*noise(t*0.35,8), 0.37); P.tgtW = 5;
       P.pole.set(0.7,-0.8,-0.3); P.palm.set(-0.25+0.55*Math.sin(t*0.31), -1, 0.15);
@@ -561,7 +587,7 @@ const MODES = {
       setThumb(THUMB.relax, THUMB.beak, 0.5+0.5*Math.sin(t*1.15-2.9));
       P.wflex = -0.55+0.22*Math.sin(t*0.52); P.wdev = 0.10*Math.sin(t*0.4+1); P.tense = 0.1;
     } },
-  wave: { label:'Wave', hint:'Forearm swings from the elbow; wrist and fingers trail behind the motion.',
+  wave: { label:'Wave', hint:'The forearm swings from the elbow; wrist and fingers trail behind.',
     fn(t) {
       const w = 6.4;
       P.tgt.set(0.29+0.12*Math.sin(t*w), 0.20+0.014*Math.cos(t*w*2), 0.11); P.tgtW = 11;
@@ -570,7 +596,7 @@ const MODES = {
       setThumb(THUMB.open, THUMB.open, 0);
       P.wflex = 0.12; P.wdev = -0.16*Math.cos(t*w); P.tense = 0.1;
     } },
-  fist: { label:'Clench', hint:'The four fingers roll shut first; the thumb waits clear, then wraps over them. Opening, the thumb lets go first.',
+  fist: { label:'Clench', hint:'Fingers roll shut and the thumb lands a beat behind. Watch the forearm swell.',
     fn(t) {
       P.tgt.set(0.10+0.006*noise(t,1), -0.235+0.006*noise(t,2), 0.33); P.tgtW = 9;
       P.pole.set(0.6,-1,-0.35); P.palm.set(-0.25,1,0.1);
@@ -587,7 +613,7 @@ const MODES = {
       setThumb(cur, THUMB.fist, fold);
       P.wflex = 0.05+0.25*avg; P.wdev = 0; P.tense = avg;
     } },
-  drum: { label:'Finger roll', hint:'The hand lies nearly flat on the table; each finger lifts and drops in turn, pinky to index, and stops on the surface.',
+  drum: { label:'Finger roll', hint:'Each finger lifts and drops in turn, stopping on the table.',
     fn(t) {
       P.tgt.set(0.17, TY+0.030, 0.40); P.tgtW = 9;
       P.pole.set(0.9,-0.7,-0.3); P.palm.set(0,-1,0);
@@ -599,7 +625,7 @@ const MODES = {
       setThumb(THUMB.flat, THUMB.open, 0.4*gauss(((t*1.4-0.62)%1+1)%1, 0.30, 0.13));
       P.wflex = levelWrist(-0.07); P.wdev = 0; P.tense = 0.1;   // the forearm slopes down to the table, so the wrist bends back to keep the hand level
     } },
-  idle: { label:'Rest', hint:'Arm hangs at the side: breathing sway, relaxed curl, small independent finger drift.',
+  idle: { label:'Rest', hint:'The arm hangs at rest, with a slow breathing sway.',
     fn(t) {
       P.tgt.set(0.085+0.012*noise(t*0.5,4), -0.548+0.005*Math.sin(t*1.1), 0.06+0.02*noise(t*0.4,5)); P.tgtW = 5;
       P.pole.set(0.35,-0.1,-1); P.palm.set(-1,0,0.15);
@@ -803,12 +829,12 @@ function update(dt) {
 const $ = id => document.getElementById(id);
 function setMode(m) {
   mode = m; paused = false; $('hint').textContent = MODES[m].hint;
-  for (const b of $('modes').children) b.classList.toggle('on', b.dataset.k === m);
+  for (const b of $('modes').children) { const on = b.dataset.k === m; b.classList.toggle('on', on); if (on) $('modes').scrollTo({ left: b.offsetLeft - ($('modes').clientWidth - b.offsetWidth)/2, behavior:'smooth' }); }
   if (m === 'reach') hold = 0.4; else grip = 0;
   if (m === 'pick') { MODES.pick.tp = 0; MODES.pick.held = false; }
   pushUp = 0;
 }
-const VIEWS = { skin:'Skin', xray:'X-ray', bones:'Bones', weights:'Weights' };
+const VIEWS = { skin:'Skin', xray:'X-ray', weights:'Weights' };
 function setView(v) {
   view = v;
   for (const b of $('views').children) b.classList.toggle('on', b.dataset.k === v);
@@ -825,7 +851,6 @@ addEventListener('keydown', e => {
   if (e.key === ' ') { paused = !paused; e.preventDefault(); }
   if (e.key === 'x') setView(view === 'xray' ? 'skin' : 'xray');
 });
-$('h-bones').textContent = bones.length;
 
 // orb dragging (registered before OrbitControls so it can claim the pointer first)
 const el = renderer.domElement, ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane();
@@ -852,6 +877,7 @@ if (camera.aspect < 1.1) camera.position.sub(controls.target).multiplyScalar(Mat
 addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 setMode('reach'); setView('skin');
+document.getElementById('loading')?.remove();
 const clock = new THREE.Clock(); let hudT = 0;
 let directing = false;
 function frame() {
@@ -894,7 +920,7 @@ async function direct({ fps = 60, PW = 1080, PH = 810, every = 1, post = '/frame
   ];
   await envReady;
   directing = true; paused = true;
-  for (const el of document.querySelectorAll('.panel')) el.style.display = 'none';
+  for (const el of document.querySelectorAll('.ui')) el.style.display = 'none';
   const oldPR = renderer.getPixelRatio();
   renderer.setPixelRatio(1); renderer.setSize(PW, PH*2, false); renderer.setScissorTest(true);
   camera.aspect = PW/PH; camera.updateProjectionMatrix(); controls.enabled = false;
@@ -946,7 +972,7 @@ async function direct({ fps = 60, PW = 1080, PH = 810, every = 1, post = '/frame
   }
   renderer.setScissorTest(false); renderer.setPixelRatio(oldPR); renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); controls.enabled = true;
-  for (const el of document.querySelectorAll('.panel')) el.style.display = '';
+  for (const el of document.querySelectorAll('.ui')) el.style.display = '';
   setView('skin'); directing = false; paused = false;
   return { frames: sent, seconds: n/fps };
 }

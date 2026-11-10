@@ -6,10 +6,12 @@ A human arm and hand built entirely in code with three.js: the mesh, the skeleto
 
 ## Run it
 
-Open `index.html` in a browser. It loads three.js and the lighting environment from a CDN, so it needs a connection. It takes a few seconds to start, because the hand's skin is generated at load.
+Live demo: https://procedural-arm-rig.vercel.app
+
+Or open `index.html` in a browser. It loads three.js and the lighting environment from a CDN, so it needs a connection. It takes a few seconds to start, because the hand's skin is generated at load.
 
 - **Motions** (bottom buttons, or keys 1–7): Reach & grab, Pick & place, Finger wave, Wave, Clench, Finger roll, Rest.
-- **Views** (top right): Skin, X-ray (bones inside translucent skin), Bones, Weights.
+- **Views** (top right): Skin, X-ray (bones inside translucent skin), Weights.
 - Drag to orbit, scroll to zoom, Space to pause. In Reach & grab you can drag the ball.
 
 ## What is in it
